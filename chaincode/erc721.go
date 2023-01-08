@@ -1,12 +1,12 @@
 package chaincode
 
 // Define structs to be used by chaincode
-type Nft struct {
-	TokenId  string `json:"tokenId"`
-	Owner    string `json:"owner"`
-	TokenURI string `json:"tokenURI"`
-	Approved string `json:"approved"`
-}
+// type Nft struct {
+// 	TokenId  string `json:"tokenId"`
+// 	Owner    string `json:"owner"`
+// 	TokenURI string `json:"tokenURI"`
+// 	Approved string `json:"approved"`
+// }
 
 type Approval struct {
 	Owner    string `json:"owner"`

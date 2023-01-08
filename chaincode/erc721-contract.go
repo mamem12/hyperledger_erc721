@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hyperledger_erc721/model"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
@@ -14,15 +15,15 @@ const nftPrefix = "nft"
 const approvalPrefix = "approval"
 
 // Define key names for options
-const nameKey = "name"
-const symbolKey = "symbol"
+// const nameKey = "name"
+const InitialKey = "initial"
 
 // TokenERC721Contract contract for managing CRUD operations
 type TokenERC721Contract struct {
 	contractapi.Contract
 }
 
-func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*Nft, error) {
+func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*model.NFT, error) {
 	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
 	if err != nil {
 		return nil, fmt.Errorf("failed to CreateCompositeKey %s: %v", tokenId, err)
@@ -33,7 +34,7 @@ func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*Nft
 		return nil, fmt.Errorf("failed to GetState %s: %v", tokenId, err)
 	}
 
-	nft := new(Nft)
+	nft := model.NewNFT("", "", "", "")
 	err = json.Unmarshal(nftBytes, nft)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Unmarshal nftBytes: %v", err)
@@ -399,52 +400,6 @@ func (c *TokenERC721Contract) TransferFrom(ctx contractapi.TransactionContextInt
 	return true, nil
 }
 
-// ============== ERC721 metadata extension ===============
-
-// Name returns a descriptive name for a collection of non-fungible tokens in this contract
-// returns {String} Returns the name of the token
-
-func (c *TokenERC721Contract) Name(ctx contractapi.TransactionContextInterface) (string, error) {
-
-	// Check if contract has been intilized first
-	initialized, err := checkInitialized(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to check if contract ia already initialized: %v", err)
-	}
-	if !initialized {
-		return "", fmt.Errorf("Contract options need to be set before calling any function, call Initialize() to initialize contract")
-	}
-
-	bytes, err := ctx.GetStub().GetState(nameKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to get Name bytes: %s", err)
-	}
-
-	return string(bytes), nil
-}
-
-// Symbol returns an abbreviated name for non-fungible tokens in this contract.
-// returns {String} Returns the symbol of the token
-
-func (c *TokenERC721Contract) Symbol(ctx contractapi.TransactionContextInterface) (string, error) {
-
-	// Check if contract has been intilized first
-	initialized, err := checkInitialized(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to check if contract ia already initialized: %v", err)
-	}
-	if !initialized {
-		return "", fmt.Errorf("Contract options need to be set before calling any function, call Initialize() to initialize contract")
-	}
-
-	bytes, err := ctx.GetStub().GetState(symbolKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to get Symbol: %v", err)
-	}
-
-	return string(bytes), nil
-}
-
 // TokenURI returns a distinct Uniform Resource Identifier (URI) for a given token.
 // param {string} tokenId The identifier for a non-fungible token
 // returns {String} Returns the URI of the token
@@ -522,23 +477,37 @@ func (c *TokenERC721Contract) Initialize(ctx contractapi.TransactionContextInter
 		return false, fmt.Errorf("client is not authorized to set the name and symbol of the token")
 	}
 
-	bytes, err := ctx.GetStub().GetState(nameKey)
+	bytes, err := ctx.GetStub().GetState(InitialKey)
 	if err != nil {
-		return false, fmt.Errorf("failed to get Name: %v", err)
+		return false, fmt.Errorf("failed to get Metadata: %v", err)
 	}
 	if bytes != nil {
 		return false, fmt.Errorf("contract options are already set, client is not authorized to change them")
 	}
 
-	err = ctx.GetStub().PutState(nameKey, []byte(name))
+	ERC721Metadata := model.NewERC721Metadata(name, symbol)
+
+	ERC721MetadataBytes, err := json.Marshal(ERC721Metadata)
+
 	if err != nil {
-		return false, fmt.Errorf("failed to PutState nameKey %s: %v", nameKey, err)
+		return false, fmt.Errorf("failed marshal name : %s, symbol : %s", name, symbol)
 	}
 
-	err = ctx.GetStub().PutState(symbolKey, []byte(symbol))
+	err = ctx.GetStub().PutState(InitialKey, ERC721MetadataBytes)
+
 	if err != nil {
-		return false, fmt.Errorf("failed to PutState symbolKey %s: %v", symbolKey, err)
+		return false, fmt.Errorf("failed putstate : %v", ERC721Metadata)
 	}
+
+	// err = ctx.GetStub().PutState(nameKey, []byte(name))
+	// if err != nil {
+	// 	return false, fmt.Errorf("failed to PutState nameKey %s: %v", nameKey, err)
+	// }
+
+	// err = ctx.GetStub().PutState(symbolKey, []byte(symbol))
+	// if err != nil {
+	// 	return false, fmt.Errorf("failed to PutState symbolKey %s: %v", symbolKey, err)
+	// }
 
 	return true, nil
 }
@@ -548,7 +517,7 @@ func (c *TokenERC721Contract) Initialize(ctx contractapi.TransactionContextInter
 // param {String} tokenURI URI containing metadata of the minted non-fungible token
 // returns {Object} Return the non-fungible token object
 
-func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContextInterface, tokenId string, tokenURI string) (*Nft, error) {
+func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContextInterface, tokenId string, tokenURI string) (*model.NFT, error) {
 
 	// Check if contract has been intilized first
 	initialized, err := checkInitialized(ctx)
@@ -588,10 +557,7 @@ func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContex
 	}
 
 	// Add a non-fungible token
-	nft := new(Nft)
-	nft.TokenId = tokenId
-	nft.Owner = minter
-	nft.TokenURI = tokenURI
+	nft := model.NewNFT(tokenId, minter, tokenURI, "")
 
 	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
 	if err != nil {
@@ -776,13 +742,3 @@ func (c *TokenERC721Contract) ClientAccountID(ctx contractapi.TransactionContext
 }
 
 // Checks that contract options have been already initialized
-func checkInitialized(ctx contractapi.TransactionContextInterface) (bool, error) {
-	tokenName, err := ctx.GetStub().GetState(nameKey)
-	if err != nil {
-		return false, fmt.Errorf("failed to get token name: %v", err)
-	}
-	if tokenName == nil {
-		return false, nil
-	}
-	return true, nil
-}
