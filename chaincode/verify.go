@@ -7,11 +7,12 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-const nameKey = "name"
-const symbolKey = "symbol"
+const (
+	initialKey = "NFT"
+)
 
 func checkInitialized(ctx contractapi.TransactionContextInterface) (bool, error) {
-	tokenName, err := ctx.GetStub().GetState(nameKey)
+	tokenName, err := ctx.GetStub().GetState(initialKey)
 	if err != nil {
 		return false, fmt.Errorf("토큰의 이름을 가져오는데 실패했습니다.: %v", err)
 	}

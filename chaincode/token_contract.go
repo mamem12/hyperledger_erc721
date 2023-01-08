@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
-	"github.com/hyperledger_erc721/chaincode/model"
+	"github.com/hyperledger_erc721/model"
 )
 
 // Define key names for options
@@ -279,12 +279,14 @@ func (c *ERC721_SmartContract) Name(ctx contractapi.TransactionContextInterface)
 		return "", err
 	}
 
-	bytes, err := ctx.GetStub().GetState(nameKey)
+	bytes, err := ctx.GetStub().GetState(initialKey)
+	erc721 := model.NewERC721Metadata("", "")
+	json.Unmarshal(bytes, erc721)
 	if err != nil {
 		return "", fmt.Errorf("failed to get Name bytes: %s", err)
 	}
 
-	return string(bytes), nil
+	return erc721.Name, nil
 }
 
 func (c *ERC721_SmartContract) Symbol(ctx contractapi.TransactionContextInterface) (string, error) {
@@ -295,12 +297,15 @@ func (c *ERC721_SmartContract) Symbol(ctx contractapi.TransactionContextInterfac
 		return "", err
 	}
 
-	bytes, err := ctx.GetStub().GetState(symbolKey)
+	bytes, err := ctx.GetStub().GetState(initialKey)
+	erc721 := model.NewERC721Metadata("", "")
+	json.Unmarshal(bytes, erc721)
+
 	if err != nil {
 		return "", fmt.Errorf("failed to get Symbol: %v", err)
 	}
 
-	return string(bytes), nil
+	return erc721.Symbol, nil
 }
 
 func (c *ERC721_SmartContract) TokenURI(ctx contractapi.TransactionContextInterface, tokenId string) (string, error) {
@@ -328,7 +333,7 @@ func (c *ERC721_SmartContract) Initialize(ctx contractapi.TransactionContextInte
 		return false, fmt.Errorf("client is not authorized to set the name and symbol of the token")
 	}
 
-	bytes, err := ctx.GetStub().GetState(nameKey)
+	bytes, err := ctx.GetStub().GetState(initialKey)
 	if err != nil {
 		return false, fmt.Errorf("failed to get Name: %v", err)
 	}
@@ -336,14 +341,16 @@ func (c *ERC721_SmartContract) Initialize(ctx contractapi.TransactionContextInte
 		return false, fmt.Errorf("contract options are already set, client is not authorized to change them")
 	}
 
-	err = ctx.GetStub().PutState(nameKey, []byte(name))
+	erc721 := model.NewERC721Metadata(name, symbol)
+	erc721Bytes, err := json.Marshal(erc721)
+
 	if err != nil {
-		return false, fmt.Errorf("failed to PutState nameKey %s: %v", nameKey, err)
+		return false, fmt.Errorf("failed erc721 marshal")
 	}
 
-	err = ctx.GetStub().PutState(symbolKey, []byte(symbol))
+	err = ctx.GetStub().PutState("", erc721Bytes)
 	if err != nil {
-		return false, fmt.Errorf("failed to PutState symbolKey %s: %v", symbolKey, err)
+		return false, fmt.Errorf("failed to putstate %v", erc721)
 	}
 
 	return true, nil
