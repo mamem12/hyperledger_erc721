@@ -24,3 +24,6 @@ vendor/
 
 # Visual Studio Code launch config file
 .vscode
+
+# hyperledger fabric debugger config file
+*.fabric
