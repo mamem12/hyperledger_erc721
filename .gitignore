@@ -21,3 +21,6 @@
 go.work
 
 vendor/
+
+# Visual Studio Code launch config file
+.vscode

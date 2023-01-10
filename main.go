@@ -13,11 +13,11 @@ import (
 func main() {
 	nftContract := new(chaincode.TokenERC721Contract)
 	nftContract.Info.Version = "0.0.1"
-	nftContract.Info.Description = "ERC-721 fabric port"
+	nftContract.Info.Description = "ERC-721 fabric develop"
 	nftContract.Info.License = new(metadata.LicenseMetadata)
-	nftContract.Info.License.Name = "Apache-2.0"
+	nftContract.Info.License.Name = "None"
 	nftContract.Info.Contact = new(metadata.ContactMetadata)
-	nftContract.Info.Contact.Name = "Matias Salimbene"
+	nftContract.Info.Contact.Name = "None"
 
 	chaincode, err := contractapi.NewChaincode(nftContract)
 	chaincode.Info.Title = "ERC-721 chaincode"
