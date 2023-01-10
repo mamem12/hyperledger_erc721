@@ -130,6 +130,57 @@ func (c *TokenERC721Contract) BalanceOf(ctx contractapi.TransactionContextInterf
 	return balance
 }
 
+func (c *TokenERC721Contract) OwnerOf(ctx contractapi.TransactionContextInterface, tokenId string) (string, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return "", fmt.Errorf("first initialize")
+	}
+
+	nft, err := _readNFT(ctx, tokenId)
+	if err != nil {
+		return "", fmt.Errorf("could not process OwnerOf for tokenId: %w", err)
+	}
+
+	return nft.Owner, nil
+}
+
+func (c *TokenERC721Contract) IsApprovedForAll(ctx contractapi.TransactionContextInterface, owner string, operator string) (bool, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return false, fmt.Errorf("first initialize")
+	}
+
+	approvalKey, err := ctx.GetStub().CreateCompositeKey(approvalPrefix, []string{owner, operator})
+	if err != nil {
+		return false, fmt.Errorf("failed to CreateCompositeKey: %v", err)
+	}
+	approvalBytes, err := ctx.GetStub().GetState(approvalKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to GetState approvalBytes %s: %v", approvalBytes, err)
+	}
+
+	if len(approvalBytes) < 1 {
+		return false, nil
+	}
+
+	approval := model.NewApproval("", "", false)
+	err = json.Unmarshal(approvalBytes, approval)
+	if err != nil {
+		return false, fmt.Errorf("failed to Unmarshal: %v, string %s", err, string(approvalBytes))
+	}
+
+	return approval.Approved, nil
+
+}
+
 func checkInitialized(ctx contractapi.TransactionContextInterface) (bool, error) {
 	ERC721MetadataBytes, err := ctx.GetStub().GetState(InitialKey)
 

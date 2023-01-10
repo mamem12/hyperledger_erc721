@@ -10,7 +10,7 @@ import (
 )
 
 /*
-TransferFrom is invoke fnc that moves token
+`TransferFrom` is invoke fnc that moves token
 from is the owner's address, to is reciepient's address
 */
 func (c *TokenERC721Contract) TransferFrom(ctx contractapi.TransactionContextInterface, from, to, tokenId string) (bool, error) {
@@ -121,6 +121,9 @@ func (c *TokenERC721Contract) TransferFrom(ctx contractapi.TransactionContextInt
 	return true, nil
 }
 
+/*
+`MintWithTokenURI`is invoke fnc that mint a new non-fungible token
+*/
 func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContextInterface, tokenId string, tokenURI string) (*model.NFT, error) {
 
 	initialized, err := checkInitialized(ctx)
@@ -204,4 +207,111 @@ func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContex
 	}
 
 	return nft, nil
+}
+
+/*
+`Approve` is invoke fnc that changes or reaffirms the approved client for a non-fungible token
+*/
+
+func (c *TokenERC721Contract) Approve(ctx contractapi.TransactionContextInterface, operator string, tokenId string) (bool, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return false, fmt.Errorf("first initialize")
+	}
+
+	sender64, err := ctx.GetClientIdentity().GetID()
+	if err != nil {
+		return false, fmt.Errorf("failed to GetClientIdentity: %v", err)
+	}
+
+	senderBytes, err := base64.StdEncoding.DecodeString(sender64)
+	if err != nil {
+		return false, fmt.Errorf("failed to DecodeString senderBytes: %v", err)
+	}
+	sender := string(senderBytes)
+
+	nft, err := _readNFT(ctx, tokenId)
+	if err != nil {
+		return false, fmt.Errorf("failed to _readNFT: %v", err)
+	}
+
+	// Check if the sender is the current owner of the non-fungible token
+	// or an authorized operator of the current owner
+	owner := nft.Owner
+	operatorApproval, err := c.IsApprovedForAll(ctx, owner, sender)
+	if err != nil {
+		return false, fmt.Errorf("failed to get IsApprovedForAll: %v", err)
+	}
+	if owner != sender && !operatorApproval {
+		return false, fmt.Errorf("the sender is not the current owner nor an authorized operator")
+	}
+
+	// Update the approved operator of the non-fungible token
+	nft.Approved = operator
+	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
+	if err != nil {
+		return false, fmt.Errorf("failed to CreateCompositeKey %s: %v", nftKey, err)
+	}
+
+	nftBytes, err := json.Marshal(nft)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal nftBytes: %v", err)
+	}
+
+	err = ctx.GetStub().PutState(nftKey, nftBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to PutState for nftKey: %v", err)
+	}
+
+	return true, nil
+}
+
+func (c *TokenERC721Contract) SetApprovalForAll(ctx contractapi.TransactionContextInterface, operator string, approved bool) (bool, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return false, fmt.Errorf("please first initialize")
+	}
+
+	sender64, err := ctx.GetClientIdentity().GetID()
+	if err != nil {
+		return false, fmt.Errorf("failed to GetClientIdentity: %v", err)
+	}
+
+	senderBytes, err := base64.StdEncoding.DecodeString(sender64)
+	if err != nil {
+		return false, fmt.Errorf("failed to DecodeString sender: %v", err)
+	}
+	sender := string(senderBytes)
+
+	nftApproval := model.NewApproval(sender, operator, approved)
+
+	approvalKey, err := ctx.GetStub().CreateCompositeKey(approvalPrefix, []string{sender, operator})
+	if err != nil {
+		return false, fmt.Errorf("failed to CreateCompositeKey: %v", err)
+	}
+
+	approvalBytes, err := json.Marshal(nftApproval)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal approvalBytes: %v", err)
+	}
+
+	err = ctx.GetStub().PutState(approvalKey, approvalBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to PutState approvalBytes: %v", err)
+	}
+
+	err = ctx.GetStub().SetEvent("ApprovalForAll", approvalBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to SetEvent ApprovalForAll: %v", err)
+	}
+
+	return true, nil
 }
