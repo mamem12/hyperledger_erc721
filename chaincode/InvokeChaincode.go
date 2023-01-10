@@ -120,3 +120,88 @@ func (c *TokenERC721Contract) TransferFrom(ctx contractapi.TransactionContextInt
 
 	return true, nil
 }
+
+func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContextInterface, tokenId string, tokenURI string) (*model.NFT, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return nil, fmt.Errorf("first initialized")
+	}
+
+	clientMSPID, err := ctx.GetClientIdentity().GetMSPID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clientMSPID: %v", err)
+	}
+
+	if clientMSPID != "Org1MSP" {
+		return nil, fmt.Errorf("client is not authorized to set the name and symbol of the token")
+	}
+
+	minter64, err := ctx.GetClientIdentity().GetID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get minter id: %v", err)
+	}
+
+	minterBytes, err := base64.StdEncoding.DecodeString(minter64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to DecodeString minter64: %v", err)
+	}
+
+	minter := string(minterBytes)
+
+	exists := _nftExists(ctx, tokenId)
+
+	if exists {
+		return nil, fmt.Errorf("the token %s is already minted", tokenId)
+	}
+
+	// Add a non-fungible token
+	nft := model.NewNFT(tokenId, minter, tokenURI, "")
+
+	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
+	if err != nil {
+		return nil, fmt.Errorf("failed to CreateCompositeKey to nftKey: %v", err)
+	}
+
+	nftBytes, err := json.Marshal(nft)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal nft: %v", err)
+	}
+
+	err = ctx.GetStub().PutState(nftKey, nftBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to PutState nftBytes %s: %v", nftBytes, err)
+	}
+
+	// increase balance
+	balanceKey, err := ctx.GetStub().CreateCompositeKey(balancePrefix, []string{minter, tokenId})
+	if err != nil {
+		return nil, fmt.Errorf("failed to CreateCompositeKey to balanceKey: %v", err)
+	}
+
+	err = ctx.GetStub().PutState(balanceKey, []byte{'\u0000'})
+	if err != nil {
+		return nil, fmt.Errorf("failed to PutState balanceKey %s: %v", nftBytes, err)
+	}
+
+	// Emit the Transfer event
+	transferEvent := new(model.Transfer)
+	transferEvent.From = "0x0"
+	transferEvent.To = minter
+	transferEvent.TokenId = tokenId
+
+	transferEventBytes, err := json.Marshal(transferEvent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal transferEventBytes: %v", err)
+	}
+
+	err = ctx.GetStub().SetEvent(TransferEventKey, transferEventBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to SetEvent transferEventBytes %s: %v", transferEventBytes, err)
+	}
+
+	return nft, nil
+}

@@ -21,47 +21,11 @@ const (
 )
 
 // Define key names for options
-// const nameKey = "name"
 const InitialKey = "initial"
 
 // TokenERC721Contract contract for managing CRUD operations
 type TokenERC721Contract struct {
 	contractapi.Contract
-}
-
-// BalanceOf counts all non-fungible tokens assigned to an owner
-// param owner {String} An owner for whom to query the balance
-// returns {int} The number of non-fungible tokens owned by the owner, possibly zero
-func (c *TokenERC721Contract) BalanceOf(ctx contractapi.TransactionContextInterface, owner string) int {
-
-	// Check if contract has been intilized first
-	initialized, err := checkInitialized(ctx)
-	if err != nil {
-		panic("failed to check if contract ia already initialized:" + err.Error())
-	}
-	if !initialized {
-		panic("Contract options need to be set before calling any function, call Initialize() to initialize contract")
-	}
-
-	// There is a key record for every non-fungible token in the format of balancePrefix.owner.tokenId.
-	// BalanceOf() queries for and counts all records matching balancePrefix.owner.*
-
-	iterator, err := ctx.GetStub().GetStateByPartialCompositeKey(balancePrefix, []string{owner})
-	if err != nil {
-		panic("Error creating asset chaincode:" + err.Error())
-	}
-
-	// Count the number of returned composite keys
-	balance := 0
-	for iterator.HasNext() {
-		_, err := iterator.Next()
-		if err != nil {
-			return 0
-		}
-		balance++
-
-	}
-	return balance
 }
 
 // OwnerOf finds the owner of a non-fungible token
@@ -175,10 +139,7 @@ func (c *TokenERC721Contract) SetApprovalForAll(ctx contractapi.TransactionConte
 	}
 	sender := string(senderBytes)
 
-	nftApproval := new(Approval)
-	nftApproval.Owner = sender
-	nftApproval.Operator = operator
-	nftApproval.Approved = approved
+	nftApproval := model.NewApproval(sender, operator, approved)
 
 	approvalKey, err := ctx.GetStub().CreateCompositeKey(approvalPrefix, []string{sender, operator})
 	if err != nil {
@@ -232,7 +193,7 @@ func (c *TokenERC721Contract) IsApprovedForAll(ctx contractapi.TransactionContex
 		return false, nil
 	}
 
-	approval := new(Approval)
+	approval := model.NewApproval("", "", false)
 	err = json.Unmarshal(approvalBytes, approval)
 	if err != nil {
 		return false, fmt.Errorf("failed to Unmarshal: %v, string %s", err, string(approvalBytes))
@@ -379,96 +340,6 @@ func (c *TokenERC721Contract) Initialize(ctx contractapi.TransactionContextInter
 // param {String} tokenId Unique ID of the non-fungible token to be minted
 // param {String} tokenURI URI containing metadata of the minted non-fungible token
 // returns {Object} Return the non-fungible token object
-
-func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContextInterface, tokenId string, tokenURI string) (*model.NFT, error) {
-
-	// Check if contract has been intilized first
-	initialized, err := checkInitialized(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
-	}
-	if !initialized {
-		return nil, fmt.Errorf("Contract options need to be set before calling any function, call Initialize() to initialize contract")
-	}
-
-	// Check minter authorization - this sample assumes Org1 is the issuer with privilege to mint a new token
-	clientMSPID, err := ctx.GetClientIdentity().GetMSPID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get clientMSPID: %v", err)
-	}
-
-	if clientMSPID != "Org1MSP" {
-		return nil, fmt.Errorf("client is not authorized to set the name and symbol of the token")
-	}
-
-	// Get ID of submitting client identity
-	minter64, err := ctx.GetClientIdentity().GetID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get minter id: %v", err)
-	}
-
-	minterBytes, err := base64.StdEncoding.DecodeString(minter64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to DecodeString minter64: %v", err)
-	}
-	minter := string(minterBytes)
-
-	// Check if the token to be minted does not exist
-	exists := _nftExists(ctx, tokenId)
-	if exists {
-		return nil, fmt.Errorf("the token %s is already minted.: %v", tokenId, err)
-	}
-
-	// Add a non-fungible token
-	nft := model.NewNFT(tokenId, minter, tokenURI, "")
-
-	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
-	if err != nil {
-		return nil, fmt.Errorf("failed to CreateCompositeKey to nftKey: %v", err)
-	}
-
-	nftBytes, err := json.Marshal(nft)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal nft: %v", err)
-	}
-
-	err = ctx.GetStub().PutState(nftKey, nftBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to PutState nftBytes %s: %v", nftBytes, err)
-	}
-
-	// A composite key would be balancePrefix.owner.tokenId, which enables partial
-	// composite key query to find and count all records matching balance.owner.*
-	// An empty value would represent a delete, so we simply insert the null character.
-
-	balanceKey, err := ctx.GetStub().CreateCompositeKey(balancePrefix, []string{minter, tokenId})
-	if err != nil {
-		return nil, fmt.Errorf("failed to CreateCompositeKey to balanceKey: %v", err)
-	}
-
-	err = ctx.GetStub().PutState(balanceKey, []byte{'\u0000'})
-	if err != nil {
-		return nil, fmt.Errorf("failed to PutState balanceKey %s: %v", nftBytes, err)
-	}
-
-	// Emit the Transfer event
-	transferEvent := new(model.Transfer)
-	transferEvent.From = "0x0"
-	transferEvent.To = minter
-	transferEvent.TokenId = tokenId
-
-	transferEventBytes, err := json.Marshal(transferEvent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal transferEventBytes: %v", err)
-	}
-
-	err = ctx.GetStub().SetEvent("Transfer", transferEventBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to SetEvent transferEventBytes %s: %v", transferEventBytes, err)
-	}
-
-	return nft, nil
-}
 
 // Burn a non-fungible token
 // param {String} tokenId Unique ID of a non-fungible token
