@@ -29,20 +29,6 @@ type TokenERC721Contract struct {
 	contractapi.Contract
 }
 
-func _nftExists(ctx contractapi.TransactionContextInterface, tokenId string) bool {
-	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
-	if err != nil {
-		panic("error creating CreateCompositeKey:" + err.Error())
-	}
-
-	nftBytes, err := ctx.GetStub().GetState(nftKey)
-	if err != nil {
-		panic("error GetState nftBytes:" + err.Error())
-	}
-
-	return len(nftBytes) > 0
-}
-
 // BalanceOf counts all non-fungible tokens assigned to an owner
 // param owner {String} An owner for whom to query the balance
 // returns {int} The number of non-fungible tokens owned by the owner, possibly zero

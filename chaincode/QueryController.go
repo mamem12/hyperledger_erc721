@@ -30,6 +30,20 @@ func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*mod
 	return nft, nil
 }
 
+func _nftExists(ctx contractapi.TransactionContextInterface, tokenId string) bool {
+	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
+	if err != nil {
+		panic("error creating CreateCompositeKey:" + err.Error())
+	}
+
+	nftBytes, err := ctx.GetStub().GetState(nftKey)
+	if err != nil {
+		panic("error GetState nftBytes:" + err.Error())
+	}
+
+	return len(nftBytes) > 0
+}
+
 func (c *TokenERC721Contract) Name(ctx contractapi.TransactionContextInterface) (string, error) {
 
 	initialized, err := checkInitialized(ctx)
