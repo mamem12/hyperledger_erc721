@@ -8,7 +8,40 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
+func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*model.NFT, error) {
+	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to CreateCompositeKey %s: %v", tokenId, err)
+	}
+
+	nftBytes, err := ctx.GetStub().GetState(nftKey)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to GetState %s: %v", tokenId, err)
+	}
+
+	nft := model.NewNFT("", "", "", "")
+	err = json.Unmarshal(nftBytes, nft)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Unmarshal nftBytes: %v", err)
+	}
+
+	return nft, nil
+}
+
 func (c *TokenERC721Contract) Name(ctx contractapi.TransactionContextInterface) (string, error) {
+
+	initialized, err := checkInitialized(ctx)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !initialized {
+		return "", fmt.Errorf("initialized first")
+	}
+
 	ERC721MetadataBytes, err := ctx.GetStub().GetState(InitialKey)
 
 	if err != nil {
@@ -27,6 +60,16 @@ func (c *TokenERC721Contract) Name(ctx contractapi.TransactionContextInterface) 
 }
 
 func (c *TokenERC721Contract) Symbol(ctx contractapi.TransactionContextInterface) (string, error) {
+
+	initialized, err := checkInitialized(ctx)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !initialized {
+		return "", fmt.Errorf("initialized first")
+	}
 
 	ERC721MetadataBytes, err := ctx.GetStub().GetState(InitialKey)
 
@@ -52,7 +95,7 @@ func checkInitialized(ctx contractapi.TransactionContextInterface) (bool, error)
 		return false, fmt.Errorf("failed to get metadata: %v", err)
 	}
 	if ERC721MetadataBytes == nil {
-		return false, nil
+		return false, err
 	}
 	return true, nil
 }

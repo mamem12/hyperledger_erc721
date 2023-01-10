@@ -14,6 +14,12 @@ const balancePrefix = "balance"
 const nftPrefix = "nft"
 const approvalPrefix = "approval"
 
+// SetEvent() key
+const (
+	TransferEventKey       = "Transfer"
+	ApprovalForAllEventKey = "ApprovalForAll"
+)
+
 // Define key names for options
 // const nameKey = "name"
 const InitialKey = "initial"
@@ -21,26 +27,6 @@ const InitialKey = "initial"
 // TokenERC721Contract contract for managing CRUD operations
 type TokenERC721Contract struct {
 	contractapi.Contract
-}
-
-func _readNFT(ctx contractapi.TransactionContextInterface, tokenId string) (*model.NFT, error) {
-	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
-	if err != nil {
-		return nil, fmt.Errorf("failed to CreateCompositeKey %s: %v", tokenId, err)
-	}
-
-	nftBytes, err := ctx.GetStub().GetState(nftKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to GetState %s: %v", tokenId, err)
-	}
-
-	nft := model.NewNFT("", "", "", "")
-	err = json.Unmarshal(nftBytes, nft)
-	if err != nil {
-		return nil, fmt.Errorf("failed to Unmarshal nftBytes: %v", err)
-	}
-
-	return nft, nil
 }
 
 func _nftExists(ctx contractapi.TransactionContextInterface, tokenId string) bool {
@@ -291,115 +277,6 @@ func (c *TokenERC721Contract) GetApproved(ctx contractapi.TransactionContextInte
 	return nft.Approved, nil
 }
 
-// TransferFrom transfers the ownership of a non-fungible token
-// from one owner to another owner
-// param {String} from The current owner of the non-fungible token
-// param {String} to The new owner
-// param {String} tokenId the non-fungible token to transfer
-// returns {Boolean} Return whether the transfer was successful or not
-
-func (c *TokenERC721Contract) TransferFrom(ctx contractapi.TransactionContextInterface, from string, to string, tokenId string) (bool, error) {
-
-	// Check if contract has been intilized first
-	initialized, err := checkInitialized(ctx)
-	if err != nil {
-		return false, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
-	}
-	if !initialized {
-		return false, fmt.Errorf("Contract options need to be set before calling any function, call Initialize() to initialize contract")
-	}
-
-	// Get ID of submitting client identity
-	sender64, err := ctx.GetClientIdentity().GetID()
-	if err != nil {
-		return false, fmt.Errorf("failed to GetClientIdentity: %v", err)
-	}
-
-	senderBytes, err := base64.StdEncoding.DecodeString(sender64)
-	if err != nil {
-		return false, fmt.Errorf("failed to DecodeString sender: %v", err)
-	}
-	sender := string(senderBytes)
-
-	nft, err := _readNFT(ctx, tokenId)
-	if err != nil {
-		return false, fmt.Errorf("failed to _readNFT : %v", err)
-	}
-
-	owner := nft.Owner
-	operator := nft.Approved
-	operatorApproval, err := c.IsApprovedForAll(ctx, owner, sender)
-	if err != nil {
-		return false, fmt.Errorf("failed to get IsApprovedForAll : %v", err)
-	}
-	if owner != sender && operator != sender && !operatorApproval {
-		return false, fmt.Errorf("the sender is not the current owner nor an authorized operator")
-	}
-
-	// Check if `from` is the current owner
-	if owner != from {
-		return false, fmt.Errorf("the from is not the current owner")
-	}
-
-	// Clear the approved client for this non-fungible token
-	nft.Approved = ""
-
-	// Overwrite a non-fungible token to assign a new owner.
-	nft.Owner = to
-	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
-	if err != nil {
-		return false, fmt.Errorf("failed to CreateCompositeKey: %v", err)
-	}
-
-	nftBytes, err := json.Marshal(nft)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal approval: %v", err)
-	}
-
-	err = ctx.GetStub().PutState(nftKey, nftBytes)
-	if err != nil {
-		return false, fmt.Errorf("failed to PutState nftBytes %s: %v", nftBytes, err)
-	}
-
-	// Remove a composite key from the balance of the current owner
-	balanceKeyFrom, err := ctx.GetStub().CreateCompositeKey(balancePrefix, []string{from, tokenId})
-	if err != nil {
-		return false, fmt.Errorf("failed to CreateCompositeKey from: %v", err)
-	}
-
-	err = ctx.GetStub().DelState(balanceKeyFrom)
-	if err != nil {
-		return false, fmt.Errorf("failed to DelState balanceKeyFrom %s: %v", nftBytes, err)
-	}
-
-	// Save a composite key to count the balance of a new owner
-	balanceKeyTo, err := ctx.GetStub().CreateCompositeKey(balancePrefix, []string{to, tokenId})
-	if err != nil {
-		return false, fmt.Errorf("failed to CreateCompositeKey to: %v", err)
-	}
-	err = ctx.GetStub().PutState(balanceKeyTo, []byte{0})
-	if err != nil {
-		return false, fmt.Errorf("failed to PutState balanceKeyTo %s: %v", balanceKeyTo, err)
-	}
-
-	// Emit the Transfer event
-	transferEvent := new(Transfer)
-	transferEvent.From = from
-	transferEvent.To = to
-	transferEvent.TokenId = tokenId
-
-	transferEventBytes, err := json.Marshal(transferEvent)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal transferEventBytes: %v", err)
-	}
-
-	err = ctx.GetStub().SetEvent("Transfer", transferEventBytes)
-	if err != nil {
-		return false, fmt.Errorf("failed to SetEvent transferEventBytes %s: %v", transferEventBytes, err)
-	}
-	return true, nil
-}
-
 // TokenURI returns a distinct Uniform Resource Identifier (URI) for a given token.
 // param {string} tokenId The identifier for a non-fungible token
 // returns {String} Returns the URI of the token
@@ -589,7 +466,7 @@ func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContex
 	}
 
 	// Emit the Transfer event
-	transferEvent := new(Transfer)
+	transferEvent := new(model.Transfer)
 	transferEvent.From = "0x0"
 	transferEvent.To = minter
 	transferEvent.TokenId = tokenId
@@ -664,7 +541,7 @@ func (c *TokenERC721Contract) Burn(ctx contractapi.TransactionContextInterface, 
 	}
 
 	// Emit the Transfer event
-	transferEvent := new(Transfer)
+	transferEvent := new(model.Transfer)
 	transferEvent.From = owner
 	transferEvent.To = "0x0"
 	transferEvent.TokenId = tokenId
