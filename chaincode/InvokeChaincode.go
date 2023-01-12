@@ -270,6 +270,11 @@ func (c *TokenERC721Contract) Approve(ctx contractapi.TransactionContextInterfac
 	return true, nil
 }
 
+/*
+`SetApprovalForAll` is invoke fnc that enables or disables approval for a third party ("operator")
+this is manage all the message sender's assets
+*/
+
 func (c *TokenERC721Contract) SetApprovalForAll(ctx contractapi.TransactionContextInterface, operator string, approved bool) (bool, error) {
 
 	initialized, err := checkInitialized(ctx)
@@ -311,6 +316,77 @@ func (c *TokenERC721Contract) SetApprovalForAll(ctx contractapi.TransactionConte
 	err = ctx.GetStub().SetEvent("ApprovalForAll", approvalBytes)
 	if err != nil {
 		return false, fmt.Errorf("failed to SetEvent ApprovalForAll: %v", err)
+	}
+
+	return true, nil
+}
+
+/*
+`Burn` is invoke fnc that burn a non-fungible token
+*/
+func (c *TokenERC721Contract) Burn(ctx contractapi.TransactionContextInterface, tokenId string) (bool, error) {
+
+	initialized, err := checkInitialized(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if contract ia already initialized: %v", err)
+	}
+	if !initialized {
+		return false, fmt.Errorf("please first initialize")
+	}
+
+	owner64, err := ctx.GetClientIdentity().GetID()
+	if err != nil {
+		return false, fmt.Errorf("failed to GetClientIdentity owner64: %v", err)
+	}
+
+	ownerBytes, err := base64.StdEncoding.DecodeString(owner64)
+	if err != nil {
+		return false, fmt.Errorf("failed to DecodeString owner64: %v", err)
+	}
+	owner := string(ownerBytes)
+
+	// Check if a caller is the owner of the non-fungible token
+	nft, err := _readNFT(ctx, tokenId)
+	if err != nil {
+		return false, fmt.Errorf("failed to _readNFT nft : %v", err)
+	}
+	if nft.Owner != owner {
+		return false, fmt.Errorf("non-fungible token %s is not owned by %s", tokenId, owner)
+	}
+
+	// Delete the token
+	nftKey, err := ctx.GetStub().CreateCompositeKey(nftPrefix, []string{tokenId})
+	if err != nil {
+		return false, fmt.Errorf("failed to CreateCompositeKey tokenId: %v", err)
+	}
+
+	err = ctx.GetStub().DelState(nftKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to DelState nftKey: %v", err)
+	}
+
+	// Remove a composite key from the balance of the owner
+	balanceKey, err := ctx.GetStub().CreateCompositeKey(balancePrefix, []string{owner, tokenId})
+	if err != nil {
+		return false, fmt.Errorf("failed to CreateCompositeKey balanceKey %s: %v", balanceKey, err)
+	}
+
+	err = ctx.GetStub().DelState(balanceKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to DelState balanceKey %s: %v", balanceKey, err)
+	}
+
+	// Emit the Transfer event
+	transferEvent := model.NewTransferMetadata(owner, "0x0", tokenId)
+
+	transferEventBytes, err := json.Marshal(transferEvent)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal transferEventBytes: %v", err)
+	}
+
+	err = ctx.GetStub().SetEvent("Transfer", transferEventBytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to SetEvent transferEventBytes: %v", err)
 	}
 
 	return true, nil
