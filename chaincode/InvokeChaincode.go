@@ -191,10 +191,7 @@ func (c *TokenERC721Contract) MintWithTokenURI(ctx contractapi.TransactionContex
 	}
 
 	// Emit the Transfer event
-	transferEvent := new(model.Transfer)
-	transferEvent.From = "0x0"
-	transferEvent.To = minter
-	transferEvent.TokenId = tokenId
+	transferEvent := model.NewTransferMetadata("0x0", minter, tokenId)
 
 	transferEventBytes, err := json.Marshal(transferEvent)
 	if err != nil {
