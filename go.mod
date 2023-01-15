@@ -1,4 +1,4 @@
-module hyperledger_erc721/chaincode
+module hyperledger_erc721
 
 go 1.19
 

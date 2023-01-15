@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"hyperledger_erc721/chaincode/model"
+	"hyperledger_erc721/model"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
