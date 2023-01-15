@@ -1,7 +1,7 @@
-package chaincode
+package main
 
 import (
-	"hyperledger_erc721/chaincode"
+	chaincode "hyperledger_erc721/chaincode/controller"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 	"github.com/hyperledger/fabric-contract-api-go/metadata"
