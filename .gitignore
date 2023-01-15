@@ -27,3 +27,9 @@ vendor/
 
 # hyperledger fabric debugger config file
 *.fabric
+
+network/
+
+bin/
+
+config/
