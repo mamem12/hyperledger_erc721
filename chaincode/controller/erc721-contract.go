@@ -3,7 +3,7 @@ package chaincode
 import (
 	"encoding/json"
 	"fmt"
-	"hyperledger_erc721/model"
+	"hyperledger_erc721/chaincode/model"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
@@ -141,6 +141,16 @@ func (c *TokenERC721Contract) Symbol(ctx contractapi.TransactionContextInterface
 	}
 
 	return *ERC721Metadata.GetSymbol(), nil
+}
+
+func (c *TokenERC721Contract) Test(ctx contractapi.TransactionContextInterface) (string, error) {
+	// x509::CN=org1admin,OU=admin,O=Hyperledger,ST=North Carolina,C=US::CN=fabric-ca-server,OU=Fabric,O=Hyperledger,ST=North Carolina,C=US
+	ctx.GetClientIdentity().GetMSPID()
+	ctx.GetClientIdentity().GetX509Certificate()
+
+	fmt.Println(ctx.GetStub().GetChannelID())
+
+	return "", nil
 }
 
 /*
