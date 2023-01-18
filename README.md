@@ -22,7 +22,7 @@ cd ../api
 go run main.go
 ```
 
-아래의 Invoke, Query를 통해 체인코드를 실행할 수 있다.
+아래의 Invoke, Query를 통해 체인코드를 실행할 수 있습니다.
 
 Invoke Func
 ```
