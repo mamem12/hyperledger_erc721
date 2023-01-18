@@ -21,3 +21,24 @@ fabric-samples의 api를 실행하여 네트워크와 통신할 수 있습니다
 cd ../api
 go run main.go
 ```
+
+아래의 Invoke, Query를 통해 체인코드를 실행할 수 있다.
+
+Invoke Func
+```
+curl --request POST \
+  --url http://localhost:3000/invoke \
+  --header 'content-type: application/x-www-form-urlencoded' \
+  --data = \
+  --data channelid=mychannel \
+  --data chaincodeid=token_erc721 \
+  --data function=Initialize \
+  --data args=HLF721 \
+  --data args=HLF \
+```
+
+Query Func
+```
+curl --request GET \
+  --url 'http://localhost:3000/query?channelid=mychannel&chaincodeid=token_erc721&function=Name' 
+```
