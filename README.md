@@ -13,6 +13,7 @@ cd test-network/
 ./network.sh up createChannel
 ```
 
+
 아래 명령어로 체인코드를 네트워크에 배포할 수 있습니다.
 ```
 ./network.sh deployCC -ccn token_erc721 -ccp ../chaincode -ccl go
