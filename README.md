@@ -15,5 +15,5 @@ cd test-network/
 
 
 ```
-
+./network.sh deployCC -ccn token_erc721 -ccp ../chaincode -ccl go
 ```
