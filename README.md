@@ -7,3 +7,13 @@ https://github.com/hyperledger/fabric-samples/tree/main/token-erc-721/chaincode-
 
 fabric-samples/test-network를 이용하여 실행할 수 있습니다.
 
+아래 명령어로 실행과 동시에 채널을 만들 수 있습니다.
+```
+cd test-network/
+./network.sh up createChannel
+```
+
+
+```
+
+```
