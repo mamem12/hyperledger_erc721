@@ -16,8 +16,8 @@ cd test-network/
 ```
 ./network.sh deployCC -ccn token_erc721 -ccp ../chaincode -ccl go
 ```
-다음은 패브릭 fabric-samples의 api를 실행하여 네트워크와 통신할 수 있습니다.
+fabric-samples의 api를 실행하여 네트워크와 통신할 수 있습니다.
 ```
-cd api
+cd ../api
 go run main.go
 ```
